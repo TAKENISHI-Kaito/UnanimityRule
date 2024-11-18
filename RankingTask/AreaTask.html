@@ -1,0 +1,24 @@
+{{ block title }}
+{{ pair_num }} 問目（全21問）
+{{ endblock }}
+
+{{ block content }}
+    <p><b>面積が大きい都道府県</b>はどちらですか？ </p>
+
+    <form method="post">
+        <p>
+            <label>
+                <input type="radio" name="ranking_task" value="{{ area1 }}">{{ area1 }}
+            </label>
+        <p>
+            <label>
+                <input type="radio" name="ranking_task" value="{{ area2 }}">{{ area2 }}
+            </label>
+        </p>
+    </form>
+
+    <br>
+
+    {{ next_button }}
+
+{{ endblock }}
