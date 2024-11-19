@@ -12,7 +12,7 @@ class C(BaseConstants):
     PLAYERS_PER_GROUP = None
     NUM_PAIRS = 21
     TASKS = ['homocide', 'research', 'trust', 'movie', 'area', 'gasoline']
-    NUM_ROUNDS = len(TASKS) * NUM_PAIRS + len(TASKS) * 2
+    NUM_ROUNDS = 11 + (2 + NUM_PAIRS) * len(TASKS) + 2 # instruction + task + result = 151
     COUNTRIES = ['カナダ', 'フランス', 'ドイツ', 'イタリア', '日本', 'イギリス', 'アメリカ']
     MOVIES = ['THE FIRST SLAM DUNK', '名探偵コナン 黒鉄の魚影', '君たちはどう生きるか', 'キングダム 運命の炎', 'ゴジラ-1.0', 'ミステリと言う勿れ', '劇場版『TOKYO MER〜走る緊急救命室〜』']
     AREA = ['北海道', '岩手県', '福島県', '長野県', '秋田県', '新潟県', '岐阜県']
@@ -50,8 +50,7 @@ def creating_session(subsession: Subsession):
             random.shuffle(task_order)
             task_rounds = {
                 task: (order + 1, start, start + 1, range(start + 2, start + 23)) # order number, announce page, instruction page, task_page
-                # for order, (task, start) in enumerate(zip(task_order, range(1, C.NUM_ROUNDS + 1, 22)))
-                for order, (task, start) in enumerate(zip(task_order, range(1, C.NUM_ROUNDS + 1, 23)))
+                for order, (task, start) in enumerate(zip(task_order, range(12, C.NUM_ROUNDS - 2, 23)))
                 }
             print('player', p.id_in_subsession)
             print('task_rounds is', task_rounds)
@@ -130,7 +129,7 @@ class Instruction9(Page):
 class HomocideAnnounce(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return player.round_number == player.participant.vars['task_rounds']['homocide'][1] + 11
+        return player.round_number == player.participant.vars['task_rounds']['homocide'][1]
     
     @staticmethod
     def vars_for_template(player):
@@ -140,7 +139,7 @@ class HomocideAnnounce(Page):
 class HomocideInstruction(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return player.round_number == player.participant.vars['task_rounds']['homocide'][2] + 11
+        return player.round_number == player.participant.vars['task_rounds']['homocide'][2]
 
 class HomocideTask(Page):
     form_model = 'player'
@@ -148,7 +147,7 @@ class HomocideTask(Page):
     
     @staticmethod
     def is_displayed(player: Player):
-        task_rounds = [round_num + 11 for round_num in player.participant.task_rounds['homocide'][3]] 
+        task_rounds = [round_num for round_num in player.participant.task_rounds['homocide'][3]] 
         return player.round_number in task_rounds
     
     @staticmethod
@@ -161,7 +160,7 @@ class HomocideTask(Page):
             random_pairs_homocide = [(pair[1], pair[0]) if randint(0, 1) == 1 else pair for pair in random_pairs_homocide]
             player.session.vars['random_pairs_homocide'] = random_pairs_homocide
         
-        task_rounds = [round_num + 11 for round_num in player.participant.task_rounds['homocide'][3]]
+        task_rounds = [round_num for round_num in player.participant.task_rounds['homocide'][3]]
         question_index = player.round_number - min(task_rounds)
         current_pair = player.session.vars['random_pairs_homocide'][question_index]
         
@@ -174,7 +173,7 @@ class HomocideTask(Page):
 class ResearchAnnounce(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return player.round_number == player.participant.vars['task_rounds']['research'][1] + 11
+        return player.round_number == player.participant.vars['task_rounds']['research'][1]
     
     @staticmethod
     def vars_for_template(player):
@@ -184,7 +183,7 @@ class ResearchAnnounce(Page):
 class ResearchInstruction(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return player.round_number == player.participant.vars['task_rounds']['research'][2] + 11
+        return player.round_number == player.participant.vars['task_rounds']['research'][2]
 
 class ResearchTask(Page):
     form_model = 'player'
@@ -192,7 +191,7 @@ class ResearchTask(Page):
     
     @staticmethod
     def is_displayed(player: Player):
-        task_rounds = [round_num + 11 for round_num in player.participant.task_rounds['research'][3]]
+        task_rounds = [round_num for round_num in player.participant.task_rounds['research'][3]]
         return player.round_number in task_rounds
     
     @staticmethod
@@ -205,7 +204,7 @@ class ResearchTask(Page):
             random_pairs_research = [(pair[1], pair[0]) if randint(0, 1) == 1 else pair for pair in random_pairs_research]
             player.session.vars['random_pairs_research'] = random_pairs_research
         
-        task_rounds = [round_num + 11 for round_num in player.participant.task_rounds['research'][3]]
+        task_rounds = [round_num for round_num in player.participant.task_rounds['research'][3]]
         question_index = player.round_number - min(task_rounds)
         current_pair = player.session.vars['random_pairs_research'][question_index]
         
@@ -218,7 +217,7 @@ class ResearchTask(Page):
 class TrustAnnounce(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return player.round_number == player.participant.vars['task_rounds']['trust'][1] + 11
+        return player.round_number == player.participant.vars['task_rounds']['trust'][1]
     
     @staticmethod
     def vars_for_template(player):
@@ -228,7 +227,7 @@ class TrustAnnounce(Page):
 class TrustInstruction(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return player.round_number == player.participant.vars['task_rounds']['trust'][2] + 11
+        return player.round_number == player.participant.vars['task_rounds']['trust'][2]
 
 class TrustTask(Page):
     form_model = 'player'
@@ -236,7 +235,7 @@ class TrustTask(Page):
     
     @staticmethod
     def is_displayed(player: Player):
-        task_rounds = [round_num + 11 for round_num in player.participant.task_rounds['trust'][3]]
+        task_rounds = [round_num for round_num in player.participant.task_rounds['trust'][3]]
         return player.round_number in task_rounds
     
     @staticmethod
@@ -249,7 +248,7 @@ class TrustTask(Page):
             random_pairs_trust = [(pair[1], pair[0]) if randint(0, 1) == 1 else pair for pair in random_pairs_trust]
             player.session.vars['random_pairs_trust'] = random_pairs_trust
         
-        task_rounds = [round_num + 11 for round_num in player.participant.task_rounds['trust'][3]]
+        task_rounds = [round_num for round_num in player.participant.task_rounds['trust'][3]]
         question_index = player.round_number - min(task_rounds)
         current_pair = player.session.vars['random_pairs_trust'][question_index]
         
@@ -262,7 +261,7 @@ class TrustTask(Page):
 class MovieAnnounce(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return player.round_number == player.participant.vars['task_rounds']['movie'][1] + 11
+        return player.round_number == player.participant.vars['task_rounds']['movie'][1]
     
     @staticmethod
     def vars_for_template(player):
@@ -272,7 +271,7 @@ class MovieAnnounce(Page):
 class MovieInstruction(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return player.round_number == player.participant.vars['task_rounds']['movie'][2] + 11
+        return player.round_number == player.participant.vars['task_rounds']['movie'][2]
 
 class MovieTask(Page):
     form_model = 'player'
@@ -280,7 +279,7 @@ class MovieTask(Page):
     
     @staticmethod
     def is_displayed(player: Player):
-        task_rounds = [round_num + 11 for round_num in player.participant.task_rounds['movie'][3]]
+        task_rounds = [round_num for round_num in player.participant.task_rounds['movie'][3]]
         return player.round_number in task_rounds
     
     @staticmethod
@@ -293,7 +292,7 @@ class MovieTask(Page):
             random_pairs_movie = [(pair[1], pair[0]) if randint(0, 1) == 1 else pair for pair in random_pairs_movie]
             player.session.vars['random_pairs_movie'] = random_pairs_movie
         
-        task_rounds = [round_num + 11 for round_num in player.participant.task_rounds['movie'][3]]
+        task_rounds = [round_num for round_num in player.participant.task_rounds['movie'][3]]
         question_index = player.round_number - min(task_rounds)
         current_pair = player.session.vars['random_pairs_movie'][question_index]
         
@@ -306,7 +305,7 @@ class MovieTask(Page):
 class AreaAnnounce(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return player.round_number == player.participant.vars['task_rounds']['area'][1] + 11
+        return player.round_number == player.participant.vars['task_rounds']['area'][1]
     
     @staticmethod
     def vars_for_template(player):
@@ -316,7 +315,7 @@ class AreaAnnounce(Page):
 class AreaInstruction(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return player.round_number == player.participant.vars['task_rounds']['area'][2] + 11
+        return player.round_number == player.participant.vars['task_rounds']['area'][2]
 
 class AreaTask(Page):
     form_model = 'player'
@@ -324,7 +323,7 @@ class AreaTask(Page):
     
     @staticmethod
     def is_displayed(player: Player):
-        task_rounds = [round_num + 11 for round_num in player.participant.task_rounds['area'][3]]
+        task_rounds = [round_num for round_num in player.participant.task_rounds['area'][3]]
         return player.round_number in task_rounds
     
     @staticmethod
@@ -337,7 +336,7 @@ class AreaTask(Page):
             random_pairs_area = [(pair[1], pair[0]) if randint(0, 1) == 1 else pair for pair in random_pairs_area]
             player.session.vars['random_pairs_area'] = random_pairs_area
         
-        task_rounds = [round_num + 11 for round_num in player.participant.task_rounds['area'][3]]
+        task_rounds = [round_num for round_num in player.participant.task_rounds['area'][3]]
         question_index = player.round_number - min(task_rounds)
         current_pair = player.session.vars['random_pairs_area'][question_index]
         
@@ -350,7 +349,7 @@ class AreaTask(Page):
 class GasolineAnnounce(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return player.round_number == player.participant.vars['task_rounds']['gasoline'][1] + 11
+        return player.round_number == player.participant.vars['task_rounds']['gasoline'][1]
     
     @staticmethod
     def vars_for_template(player):
@@ -360,7 +359,7 @@ class GasolineAnnounce(Page):
 class GasolineInstruction(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return player.round_number == player.participant.vars['task_rounds']['gasoline'][2] + 11
+        return player.round_number == player.participant.vars['task_rounds']['gasoline'][2]
 
 class GasolineTask(Page):
     form_model = 'player'
@@ -368,7 +367,7 @@ class GasolineTask(Page):
     
     @staticmethod
     def is_displayed(player: Player):
-        task_rounds = [round_num + 11 for round_num in player.participant.task_rounds['gasoline'][3]]
+        task_rounds = [round_num for round_num in player.participant.task_rounds['gasoline'][3]]
         return player.round_number in task_rounds
     
     @staticmethod
@@ -381,7 +380,7 @@ class GasolineTask(Page):
             random_pairs_gasoline = [(pair[1], pair[0]) if randint(0, 1) == 1 else pair for pair in random_pairs_gasoline]
             player.session.vars['random_pairs_gasoline'] = random_pairs_gasoline
         
-        task_rounds = [round_num + 11 for round_num in player.participant.task_rounds['gasoline'][3]]
+        task_rounds = [round_num for round_num in player.participant.task_rounds['gasoline'][3]]
         question_index = player.round_number - min(task_rounds)
         current_pair = player.session.vars['random_pairs_gasoline'][question_index]
         
@@ -394,7 +393,7 @@ class GasolineTask(Page):
 class Answer(Page):
     @staticmethod
     def is_displayed(player):
-        return player.round_number == C.NUM_ROUNDS
+        return player.round_number == C.NUM_ROUNDS - 1
 
 
 class Results(Page):
