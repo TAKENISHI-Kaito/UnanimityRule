@@ -9,84 +9,15 @@
 
 <br>
 
-<h5>殺人による死亡者数</h5>
-<ol>
-    <li>アメリカ</li>
-    <li>カナダ</li>
-    <li>フランス</li>
-    <li>イギリス</li>
-    <li>ドイツ</li>
-    <li>イタリア</li>
-    <li>日本</li>
+{% for task in task_answers %}
+<h5>{{ task.kind }}</h5>
+<ol type = "1">
+    {% for candidate in task.candidates %}
+    <li>{{ candidate }}</li>
+    {% endfor %}
 </ol>
-
 <br>
+{% endfor %}
 
-<h5>科学雑誌に掲載された論文数</h5>
-<ol>
-    <li>カナダ</li>
-    <li>イギリス</li>
-    <li>イタリア</li>
-    <li>アメリカ</li>
-    <li>ドイツ</li>
-    <li>フランス</li>
-    <li>日本</li>
-</ol>
-
-<br>
-
-<h5>他人を信頼する人</h5>
-<ol>
-    <li>カナダ</li>
-    <li>イギリス</li>
-    <li>ドイツ</li>
-    <li>アメリカ</li>
-    <li>日本</li>
-    <li>イタリア</li>
-    <li>フランス</li>
-</ol>
-
-<br>
-
-<h5>映画の興行収入</h5>
-<ol>
-    <li>THE FIRST SLAM DUNK</li>
-    <li>名探偵コナン 黒鉄の魚影</li>
-    <li>君たちはどう生きるか</li>
-    <li>キングダム 運命の炎</li>
-    <li>ゴジラ-1.0</li>
-    <li>ミステリと言う勿れ</li>
-    <li>劇場版『TOKYO MER〜走る緊急救命室〜』</li>
-</ol>
-
-<br>
-
-<h5>都道府県の面積</h5>
-<ol>
-    <li>北海道</li>
-    <li>岩手県</li>
-    <li>福島県</li>
-    <li>長野県</li>
-    <li>秋田県</li>
-    <li>新潟県</li>
-    <li>岐阜県</li>
-</ol>
-
-<br>
-
-<h5>ガソリンの消費量</h5>
-<ol>
-    <li>愛知県</li>
-    <li>東京都</li>
-    <li>北海道</li>
-    <li>埼玉県</li>
-    <li>神奈川県</li>
-    <li>千葉県</li>
-    <li>大阪府</li>
-</ol>
-
-<br>
-
-    {{ next_button }}
-
+{{ next_button }}
 {{ endblock }}
