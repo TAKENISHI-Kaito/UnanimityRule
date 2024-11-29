@@ -1,0 +1,23 @@
+{{ block title }}
+問題の正解
+{{ endblock }}
+
+{{ block content }}
+<p>
+    これで全ての問題は終了です。以下に、問題の正解を記載します。
+</p>
+
+<br>
+
+{% for task in task_answers %}
+<h5>{{ task.kind }}</h5>
+<ol type = "1">
+    {% for candidate in task.candidates %}
+    <li>{{ candidate }}</li>
+    {% endfor %}
+</ol>
+<br>
+{% endfor %}
+
+{{ next_button }}
+{{ endblock }}
