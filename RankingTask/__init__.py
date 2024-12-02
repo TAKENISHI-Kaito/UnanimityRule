@@ -52,15 +52,44 @@ class Player(BasePlayer):
 def creating_session(subsession: Subsession):
     if subsession.round_number == 1:
         for p in subsession.get_players():
-            tasks = [item["task"] for item in tasks_info]
-            task_order = tasks.copy()
+            task_data = []
+            question_id = 1
+            for task in C.TASKS_INFO:
+                task_kind = task['task']
+                question = task['question']
+                candidates = task['candidate']
+                rankings = task['ranking']
+                for subquestion_id, (option1, option2) in enumerate(itertools.combinations(candidates, 2), start=1):
+                    rank1 = rankings[candidates.index(option1)]
+                    rank2 = rankings[candidates.index(option2)]
+                    task_data.append({
+                        'question_id': question_id,
+                        'kind': task_kind,
+                        'question': question,
+                        'subquestion_id': subquestion_id,
+                        'option1': option1,
+                        'option2': option2,
+                        'rank1': rank1,
+                        'rank2': rank2
+                    })
+                    question_id += 1  
+            p.participant.vars['all_tasks'] = task_data
+
+            task_order = list(set([item['kind'] for item in task_data]))
             rng.shuffle(task_order)
-            task_rounds = []
-            for i, (task, start) in enumerate(zip(task_order, range(12, C.NUM_ROUNDS - 2, C.NUM_PAIRS + 2))):
-                task_rounds.append([task, start])
-            print('player', p.id_in_subsession)
-            print('task_rounds is', task_rounds)
-            p.participant.vars['task_rounds'] = task_rounds
+            
+            randomized_task_data = []
+            for kind in task_order:
+                task_questions = [q for q in task_data if q['kind'] == kind]
+                rng.shuffle(task_questions)
+                for question in task_questions:
+                    if rng.random() < 0.5:
+                        question['option1'], question['option2'] = question['option2'], question['option1']
+                        question['rank1'], question['rank2'] = question['rank2'], question['rank1']
+                randomized_task_data.extend(task_questions)
+            p.participant.vars['randomized_tasks'] = randomized_task_data
+            print(task_order)
+            print(len(randomized_task_data))
 
 
 # PAGES
@@ -126,35 +155,38 @@ class PreInstruction4(Page):
 class Announce(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return len(player.participant.vars['task_rounds']) > 0 and player.round_number == player.participant.vars['task_rounds'][0][1]
+        return player.round_number == 12 or (player.round_number - 12) % (C.NUM_PAIRS + 2) == 0
 
     @staticmethod
     def vars_for_template(player):
-        current_task = player.participant.vars['task_rounds'][0][0]
-        current_task_infomation = next((item for item in C.TASKS_INFO if item['task'] == current_task), None)
-        
+        task_index = (player.round_number - 12) // (C.NUM_PAIRS + 2)
+        current_task = player.participant.vars['randomized_tasks'][task_index * C.NUM_PAIRS]['kind']
+        current_task_info = next(task for task in C.TASKS_INFO if task['kind'] == current_task)
+
         return {
-            'task_order': len(C.TASKS_INFO) - len(player.participant.vars['task_rounds']) + 1,
-            'task_kind': current_task_infomation['kind']
-            }
+            'task_order': task_index + 1,
+            'task_kind': current_task_info['kind'],
+        }
 
 
 class Instruction(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return len(player.participant.vars['task_rounds']) > 0 and player.round_number == player.participant.vars['task_rounds'][0][1] + 1
+        return player.round_number == 13 or (player.round_number - 11) % (C.NUM_PAIRS + 2) == 1
 
     @staticmethod
     def vars_for_template(player):
-        current_task = player.participant.vars['task_rounds'][0][0]
-        current_task_infomation = next((item for item in C.TASKS_INFO if item['task'] == current_task), None)
-        
+        task_index = (player.round_number - 12) // (C.NUM_PAIRS + 2)
+        current_task = player.participant.vars['randomized_tasks'][task_index * C.NUM_PAIRS]['kind']
+        current_task_info = next(task for task in C.TASKS_INFO if task['kind'] == current_task)
+
         return {
-            'question': current_task_infomation['question'],
-            'example1': current_task_infomation['example'][0],
-            'example2': current_task_infomation['example'][1],
-            'annotations': current_task_infomation['annotation']
-            }
+            'question': current_task_info['question'],
+            'example1': current_task_info['example'][0],
+            'example2': current_task_info['example'][1],
+            'annotations': current_task_info['annotation']
+        }
+
 
 class Task(Page):
     form_model = 'player'
@@ -162,53 +194,43 @@ class Task(Page):
 
     @staticmethod
     def is_displayed(player: Player):
-        if len(player.participant.vars['task_rounds']) == 0:
-            return False
-        start = player.participant.vars['task_rounds'][0][1]
-        task_rounds = [round_num for round_num in range(start + 2, start + 2 + C.NUM_PAIRS)]
-        return player.round_number in task_rounds
+        return 14 <= player.round_number <= (11 + len(player.participant.vars['randomized_tasks']))
 
     @staticmethod
     def vars_for_template(player):
-        current_task = player.participant.vars['task_rounds'][0][0] 
-        current_task_infomation = next((item for item in C.TASKS_INFO if item['task'] == current_task), None) 
+        current_question_index = player.round_number - 12
+        current_question = player.participant.vars['randomized_tasks'][current_question_index]
         
-        if 'random_pairs' not in player.participant.vars or player.round_number == player.participant.vars['task_rounds'][0][1] + 2:
-            candidates = current_task_infomation['candidate']
-            pairs = np.array(list(itertools.combinations(candidates, 2)))
-            [rng.shuffle(li) for li in pairs]
-            rng.shuffle(pairs)
-            player.participant.vars['random_pairs'] = pairs
-
-        start = player.participant.vars['task_rounds'][0][1]
-        task_rounds = [round_num for round_num in range(start + 2, start + C.NUM_PAIRS + 2)]
-        question_index = player.round_number - min(task_rounds)
-        current_pair = player.participant.vars['random_pairs'][question_index]
-        
-        if player.round_number == max(task_rounds):
-            player.participant.vars['task_rounds'].pop(0)
-            del player.participant.vars['random_pairs']
+        current_kind = current_question['kind']
+        pair_num = sum(1 for q in player.participant.vars['randomized_tasks'][:current_question_index] if q['kind'] == current_kind) + 1
         
         return {
-            'pair_num': question_index + 1,
-            'question': current_task_infomation['question'],
-            'option1': current_pair[0],
-            'option2': current_pair[1]
+            'pair_num': pair_num,
+            'question_id': current_question['question_id'],
+            'kind': current_question['kind'],
+            'question': current_question['question'],
+            'subquestion_id': current_question['subquestion_id'],
+            'option1': current_question['option1'],
+            'option2': current_question['option2']
         }
     
     @staticmethod
     def before_next_page(player, timeout_happened):
-        if 'random_pairs' not in player.participant.vars:
-            return
+        current_question_index = player.round_number - 12
+        current_question = player.participant.vars['randomized_tasks'][current_question_index]
+        answer = player.ranking_task
+        true_false = None
+
+        if answer == current_question['option1']:
+            true_false = 1 if current_question['rank1'] < current_question['rank2'] else 0
+        elif answer == current_question['option2']:
+            true_false = 1 if current_question['rank2'] < current_question['rank1'] else 0
         
-        current_task = player.participant.vars['task_rounds'][0][0]
-        task_index = [idx for idx, task in enumerate(C.TASKS_INFO) if task['task'] == current_task][0]
-
-        pairs = player.participant.vars['random_pairs']
-        question_index = player.round_number - player.participant.vars['task_rounds'][0][1] - 2
-        current_pair = pairs[question_index]
-
-        player.participant.vars[f'task_{task_index}_answer_{question_index}'] = player.ranking_task
+        player.participant.vars[f'answer_{current_question_index}'] = {
+            'question_id': current_question['question_id'],
+            'answer': answer,
+            'true_false': true_false
+        }
 
 
 class Answer(Page):
@@ -249,38 +271,23 @@ def custom_export(players):
         'ID', 'informed_consent', 'gender', 'age',
         'questionID', 'kind', 'subquestionID', 
         'option1', 'option2', 'rank1', 'rank2',
-        'answer', 'TrueFalse'
+        'answer', 'true_false'
     ]
-    
     for player in players:
-        participant = player.participant
-        
-        informed_consent = player.informed_consent
-        id_number = player.id_number
-        gender = player.gender
-        age = player.age
-        
-        for idx, task in enumerate(C.TASKS_INFO):
-            task_base_id = idx * C.NUM_PAIRS
-            for sub_idx, (option1, option2) in enumerate(itertools.combinations(task['candidate'], 2)):
-                subquestionID = sub_idx + 1
-                questionID = task_base_id + subquestionID
-                
-                rank1 = task['ranking'][task['candidate'].index(option1)]
-                rank2 = task['ranking'][task['candidate'].index(option2)]
-                
-                answer = participant.vars.get(f'task_{idx}_answer_{sub_idx}', None)
-                
-                if answer == option1:
-                    true_false = 1 if rank1 < rank2 else 0
-                elif answer == option2:
-                    true_false = 1 if rank2 < rank1 else 0
-                else:
-                    true_false = None
-                
-                yield [
-                    id_number, informed_consent, gender, age,
-                    questionID, task['task'], subquestionID,
-                    option1, option2, rank1, rank2,
-                    answer, true_false
-                ]
+        for idx, task in enumerate(player.participant.vars['randomized_tasks']):
+            answer_data = player.participant.vars.get(f'answer_{idx}', {})
+            yield [
+                player.id_number,
+                player.informed_consent,
+                player.gender,
+                player.age,
+                task['question_id'],
+                task['kind'],
+                task['subquestion_id'],
+                task['option1'],
+                task['option2'],
+                task['rank1'],
+                task['rank2'],
+                answer_data.get('answer'),
+                answer_data.get('true_false')
+            ]
