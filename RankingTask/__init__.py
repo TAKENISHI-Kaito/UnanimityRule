@@ -55,7 +55,7 @@ def creating_session(subsession: Subsession):
             task_data = []
             question_id = 1
             for task in C.TASKS_INFO:
-                task_kind = task['task']
+                task_kind = task['kind']
                 question = task['question']
                 candidates = task['candidate']
                 rankings = task['ranking']
@@ -89,7 +89,6 @@ def creating_session(subsession: Subsession):
                 randomized_task_data.extend(task_questions)
             p.participant.vars['randomized_tasks'] = randomized_task_data
             print(task_order)
-            print(len(randomized_task_data))
 
 
 # PAGES
@@ -99,6 +98,9 @@ class InformedConsent(Page):
 
     def is_displayed(player):
         return player.round_number == 1
+    
+    def before_next_page(player, timeout_happened):
+        player.participant.vars['informed_consent'] = player.informed_consent
 
 
 class Demographic(Page):
@@ -108,6 +110,12 @@ class Demographic(Page):
     @staticmethod
     def is_displayed(player):
         return player.round_number == 2
+    
+    @staticmethod
+    def before_next_page(player, timeout_happened):
+        player.participant.vars['id_number'] = player.id_number
+        player.participant.vars['gender'] = player.gender
+        player.participant.vars['age'] = player.age
 
 class PreInstruction1(Page):
     form_model = 'player'
@@ -155,24 +163,26 @@ class PreInstruction4(Page):
 class Announce(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return player.round_number == 12 or (player.round_number - 12) % (C.NUM_PAIRS + 2) == 0
+        task_set_start_rounds = [12 + i * (C.NUM_PAIRS + 2) for i in range(len(C.TASKS_INFO))]
+        return player.round_number in task_set_start_rounds
 
     @staticmethod
     def vars_for_template(player):
         task_index = (player.round_number - 12) // (C.NUM_PAIRS + 2)
         current_task = player.participant.vars['randomized_tasks'][task_index * C.NUM_PAIRS]['kind']
-        current_task_info = next(task for task in C.TASKS_INFO if task['kind'] == current_task)
 
         return {
             'task_order': task_index + 1,
-            'task_kind': current_task_info['kind'],
+            'task_kind': current_task,
         }
 
 
 class Instruction(Page):
     @staticmethod
     def is_displayed(player: Player):
-        return player.round_number == 13 or (player.round_number - 11) % (C.NUM_PAIRS + 2) == 1
+        task_set_start_rounds = [12 + i * (C.NUM_PAIRS + 2) for i in range(len(C.TASKS_INFO))]
+        instruction_rounds = [round + 1 for round in task_set_start_rounds]
+        return player.round_number in instruction_rounds
 
     @staticmethod
     def vars_for_template(player):
@@ -188,21 +198,31 @@ class Instruction(Page):
         }
 
 
+
 class Task(Page):
     form_model = 'player'
     form_fields = ['ranking_task']
 
     @staticmethod
     def is_displayed(player: Player):
-        return 14 <= player.round_number <= (11 + len(player.participant.vars['randomized_tasks']))
+        task_set_start_rounds = [12 + i * (C.NUM_PAIRS + 2) for i in range(len(C.TASKS_INFO))]
+        task_rounds = [round + j for round in task_set_start_rounds for j in range(2, 2 + C.NUM_PAIRS)]
+        return player.round_number in task_rounds
 
     @staticmethod
     def vars_for_template(player):
-        current_question_index = player.round_number - 12
+        task_cycle_length = 2 + C.NUM_PAIRS
+        task_index = (player.round_number - 12) // task_cycle_length
+        offset = 14 + task_index * 2
+        current_question_index = player.round_number - offset
         current_question = player.participant.vars['randomized_tasks'][current_question_index]
+        # print(f'index: {current_question_index}')
+        # print(f'quesiotn: {current_question}')
         
         current_kind = current_question['kind']
         pair_num = sum(1 for q in player.participant.vars['randomized_tasks'][:current_question_index] if q['kind'] == current_kind) + 1
+        # print(f'kind: {current_kind}') 
+        # print(f'num: {pair_num}')
         
         return {
             'pair_num': pair_num,
@@ -216,7 +236,10 @@ class Task(Page):
     
     @staticmethod
     def before_next_page(player, timeout_happened):
-        current_question_index = player.round_number - 12
+        task_cycle_length = 2 + C.NUM_PAIRS
+        task_index = (player.round_number - 12) // task_cycle_length
+        offset = 14 + task_index * 2
+        current_question_index = player.round_number - offset
         current_question = player.participant.vars['randomized_tasks'][current_question_index]
         answer = player.ranking_task
         true_false = None
@@ -274,20 +297,21 @@ def custom_export(players):
         'answer', 'true_false'
     ]
     for player in players:
-        for idx, task in enumerate(player.participant.vars['randomized_tasks']):
-            answer_data = player.participant.vars.get(f'answer_{idx}', {})
-            yield [
-                player.id_number,
-                player.informed_consent,
-                player.gender,
-                player.age,
-                task['question_id'],
-                task['kind'],
-                task['subquestion_id'],
-                task['option1'],
-                task['option2'],
-                task['rank1'],
-                task['rank2'],
-                answer_data.get('answer'),
-                answer_data.get('true_false')
-            ]
+        if player.round_number == C.NUM_ROUNDS:
+            for idx, task in enumerate(player.participant.vars['randomized_tasks']):
+                answer_data = player.participant.vars.get(f'answer_{idx}', {})
+                yield [
+                    player.participant.vars.get('id_number'),
+                    player.participant.vars.get('informed_consent'),
+                    player.participant.vars.get('gender'),
+                    player.participant.vars.get('age'),
+                    task['question_id'],
+                    task['kind'],
+                    task['subquestion_id'],
+                    task['option1'],
+                    task['option2'],
+                    task['rank1'],
+                    task['rank2'],
+                    answer_data.get('answer'),
+                    answer_data.get('true_false')
+                ]
