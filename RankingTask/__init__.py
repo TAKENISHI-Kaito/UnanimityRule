@@ -1,3 +1,5 @@
+from time import time
+
 import itertools
 
 import numpy as np
@@ -55,6 +57,7 @@ def creating_session(subsession: Subsession):
             task_data = []
             question_id = 1
             for task in C.TASKS_INFO:
+                task_id = task['task']
                 task_kind = task['kind']
                 question = task['question']
                 candidates = task['candidate']
@@ -64,6 +67,7 @@ def creating_session(subsession: Subsession):
                     rank2 = rankings[candidates.index(option2)]
                     task_data.append({
                         'question_id': question_id,
+                        'task_id': task_id,
                         'kind': task_kind,
                         'question': question,
                         'subquestion_id': subquestion_id,
@@ -87,6 +91,8 @@ def creating_session(subsession: Subsession):
                         question['option1'], question['option2'] = question['option2'], question['option1']
                         question['rank1'], question['rank2'] = question['rank2'], question['rank1']
                 randomized_task_data.extend(task_questions)
+            for answer_order_id, question in enumerate(randomized_task_data, start=1):
+                question['answer_order_id'] = answer_order_id
             p.participant.vars['randomized_tasks'] = randomized_task_data
             print(task_order)
 
@@ -99,6 +105,10 @@ class InformedConsent(Page):
     def is_displayed(player):
         return player.round_number == 1
     
+    def error_message(player, value):
+        if not value.get('informed_consent'):
+            return '回答を選択してください。'
+    
     def before_next_page(player, timeout_happened):
         player.participant.vars['informed_consent'] = player.informed_consent
 
@@ -110,6 +120,14 @@ class Demographic(Page):
     @staticmethod
     def is_displayed(player):
         return player.round_number == 2
+    
+    def error_message(player, value):
+        if not value.get('id_number'):
+            return '回答を記入してください。'
+        if not value.get('gender'):
+            return '回答を選択してください。'
+        if not value.get('age'):
+            return '回答を記入してください。'
     
     @staticmethod
     def before_next_page(player, timeout_happened):
@@ -211,22 +229,22 @@ class Task(Page):
 
     @staticmethod
     def vars_for_template(player):
+        player.participant.vars['start_time'] = time()
+        
         task_cycle_length = 2 + C.NUM_PAIRS
         task_index = (player.round_number - 12) // task_cycle_length
         offset = 14 + task_index * 2
         current_question_index = player.round_number - offset
         current_question = player.participant.vars['randomized_tasks'][current_question_index]
-        # print(f'index: {current_question_index}')
-        # print(f'quesiotn: {current_question}')
         
         current_kind = current_question['kind']
         pair_num = sum(1 for q in player.participant.vars['randomized_tasks'][:current_question_index] if q['kind'] == current_kind) + 1
-        # print(f'kind: {current_kind}') 
-        # print(f'num: {pair_num}')
         
         return {
             'pair_num': pair_num,
+            'answer_order_id': current_question['answer_order_id'],
             'question_id': current_question['question_id'],
+            'task_id': current_question['task_id'],
             'kind': current_question['kind'],
             'question': current_question['question'],
             'subquestion_id': current_question['subquestion_id'],
@@ -234,12 +252,22 @@ class Task(Page):
             'option2': current_question['option2']
         }
     
+        def error_message(player, value):
+            if not value.get('ranking_task'):
+                return '回答を選択してください。'
+    
     @staticmethod
     def before_next_page(player, timeout_happened):
         task_cycle_length = 2 + C.NUM_PAIRS
         task_index = (player.round_number - 12) // task_cycle_length
         offset = 14 + task_index * 2
         current_question_index = player.round_number - offset
+        
+        start_time = player.participant.vars.get('start_time')
+        if start_time:
+            elapsed_time = time() - start_time
+            player.participant.vars[f'elapsed_time_{current_question_index}'] = elapsed_time
+        
         current_question = player.participant.vars['randomized_tasks'][current_question_index]
         answer = player.ranking_task
         true_false = None
@@ -252,7 +280,8 @@ class Task(Page):
         player.participant.vars[f'answer_{current_question_index}'] = {
             'question_id': current_question['question_id'],
             'answer': answer,
-            'true_false': true_false
+            'true_false': true_false,
+            'time_spent': elapsed_time
         }
 
 
@@ -264,9 +293,22 @@ class Answer(Page):
     @staticmethod
     def vars_for_template(player):
         task_answers = []
-        for task in C.TASKS_INFO:
+        for task_index, task in enumerate(C.TASKS_INFO):
+            kind = task['kind']
+            
+            start_index = task_index * C.NUM_PAIRS
+            end_index = start_index + C.NUM_PAIRS
+            correct_count = sum(
+                1 for idx in range(start_index, end_index)
+                if player.participant.vars.get(f'answer_{idx}', {}).get('true_false') == 1
+            )
+            
+            total_questions = C.NUM_PAIRS
+            
             task_answers.append({
-                'kind': task['kind'],
+                'kind': kind,
+                'correct_count': correct_count,
+                'total_questions': total_questions,
                 'candidates': task['candidate']
             })
         
@@ -291,21 +333,28 @@ page_sequence = [
 
 def custom_export(players):
     yield [
+        'participant_code', 'session_code', 'time_started_utc',
         'ID', 'informed_consent', 'gender', 'age',
-        'questionID', 'kind', 'subquestionID', 
+        'answer_order_id','questionID', 'task_id', 'kind', 'subquestionID', 
         'option1', 'option2', 'rank1', 'rank2',
-        'answer', 'true_false'
+        'answer', 'true_false', 'time_spent'
     ]
     for player in players:
         if player.round_number == C.NUM_ROUNDS:
             for idx, task in enumerate(player.participant.vars['randomized_tasks']):
                 answer_data = player.participant.vars.get(f'answer_{idx}', {})
+                elapsed_time = player.participant.vars.get(f'elapsed_time_{idx}', {})
                 yield [
+                    player.participant.code,
+                    player.session.code,
+                    player.participant.time_started_utc,
                     player.participant.vars.get('id_number'),
                     player.participant.vars.get('informed_consent'),
                     player.participant.vars.get('gender'),
                     player.participant.vars.get('age'),
+                    task['answer_order_id'],
                     task['question_id'],
+                    task['task_id'],
                     task['kind'],
                     task['subquestion_id'],
                     task['option1'],
@@ -313,5 +362,6 @@ def custom_export(players):
                     task['rank1'],
                     task['rank2'],
                     answer_data.get('answer'),
-                    answer_data.get('true_false')
+                    answer_data.get('true_false'),
+                    elapsed_time
                 ]
