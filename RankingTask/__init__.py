@@ -49,6 +49,13 @@ class Player(BasePlayer):
         )
     
     ranking_task = models.LongStringField()
+    
+    confidence = models.CharField(
+        initial = None,
+        choices = ['きわめて自信がある','かなり自信がある', '自信がある', 'あまり自信がない','ほとんど自信がない'],
+        verbose_name = 'どの程度自信がありますか？',
+        widget = widgets.RadioSelect()
+    )
 
 # FUNCTION
 def creating_session(subsession: Subsession):
@@ -219,7 +226,7 @@ class Instruction(Page):
 
 class Task(Page):
     form_model = 'player'
-    form_fields = ['ranking_task']
+    form_fields = ['ranking_task', 'confidence']
 
     @staticmethod
     def is_displayed(player: Player):
@@ -249,7 +256,9 @@ class Task(Page):
             'question': current_question['question'],
             'subquestion_id': current_question['subquestion_id'],
             'option1': current_question['option1'],
-            'option2': current_question['option2']
+            'option2': current_question['option2'],
+            'confidence_question': 'その判断に自信がありますか？',
+            'confidence_choices': ['きわめて自信がある', 'かなり自信がある', '自信がある', 'あまり自信がない', 'ほとんど自信がない']
         }
     
         def error_message(player, value):
@@ -276,11 +285,27 @@ class Task(Page):
             true_false = 1 if current_question['rank1'] < current_question['rank2'] else 0
         elif answer == current_question['option2']:
             true_false = 1 if current_question['rank2'] < current_question['rank1'] else 0
+            
+        confidence = player.confidence
+        confidence_num = None
+        
+        if confidence == 'きわめて自信がある':
+            confidence_num = 5
+        elif confidence == 'かなり自信がある':
+            confidence_num = 4
+        elif confidence == '自信がある':
+            confidence_num = 3
+        elif confidence == 'あまり自信がない':
+            confidence_num = 2
+        elif confidence == 'ほとんど自信がない':
+            confidence_num = 1
         
         player.participant.vars[f'answer_{current_question_index}'] = {
             'question_id': current_question['question_id'],
             'answer': answer,
             'true_false': true_false,
+            'confidence': confidence,
+            'confidence_num': confidence_num,
             'time_spent': elapsed_time
         }
 
@@ -337,7 +362,7 @@ def custom_export(players):
         'ID', 'informed_consent', 'gender', 'age',
         'answer_order_id','questionID', 'task_id', 'kind', 'subquestionID', 
         'option1', 'option2', 'rank1', 'rank2',
-        'answer', 'true_false', 'time_spent'
+        'answer', 'true_false', 'confidence', 'confidence_num', 'time_spent'
     ]
     for player in players:
         if player.round_number == C.NUM_ROUNDS:
@@ -363,5 +388,7 @@ def custom_export(players):
                     task['rank2'],
                     answer_data.get('answer'),
                     answer_data.get('true_false'),
+                    answer_data.get('confidence'),
+                    answer_data.get('confidence_num'),
                     elapsed_time
                 ]

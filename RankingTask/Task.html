@@ -16,6 +16,18 @@
                 <input type="radio" name="ranking_task" value="{{ option2 }}">{{ option2 }}
             </label>
         </p>
+
+        <hr>
+
+        <p><b>{{ confidence_question }}</b></p>
+        <p>
+            {% for choice in confidence_choices %}
+                <label>
+                    <input type="radio" name="confidence" value="{{ choice }}">{{ choice }}
+                </label><br>
+            {% endfor %}
+        </p>
+
     </form>
 
     <br>
